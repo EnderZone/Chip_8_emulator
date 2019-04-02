@@ -64,7 +64,7 @@ void Chip8::emulateCycle() {
 	// Fetch Opcode
 	opcode = memory[pc] << 8 | memory[pc + 1];
 
-	// Decode Opcode
+	// Decode Opcode & Execute Opcode
 	// When decoding operation code, remember to add two to program counter unless it affects it directly, like a goto
 
 	switch (opcode & 0xF000) {
@@ -162,8 +162,52 @@ void Chip8::emulateCycle() {
 			break;
 
 		// 8XY3 - Set VX to (VX XOR VY)
-		case 0x0002:
+		case 0x0003:
 			V[(opcode & 0x0F00) >> 8] = V[(opcode & 0x0F00) >> 8] ^ V[(opcode & 0x00F0) >> 4];
+			pc += 2;
+			break;
+		
+		// 8XY4 - Add the value of VY to register VX
+		case 0x0004:
+			if (V[(opcode & 0x00F0) >> 4] > (0xFF - V[(opcode & 0x0F00) >> 8]))
+				V[0xF] = 1;												// Carry one if we loop over
+			else
+				V[0xF] = 0;												// Else set it to 0
+			V[(opcode & 0x0F00) >> 8] += V[(opcode & 0x00F0) >> 4];
+			pc += 2;
+			break;
+
+		// 8XY5 - Subtract the value of VY from register VX
+		case 0x0005:
+			if (V[(opcode & 0x00F0) >> 4] > V[(opcode & 0x0F00) >> 8])
+				V[0xF] = 1;												// Carry one if we loop under
+			else
+				V[0xF] = 0;												// Else set it to 0
+			V[(opcode & 0x0F00) >> 8] -= V[(opcode & 0x00F0) >> 4];
+			pc +=2;
+			break;
+
+		// 8XY6 - Store the value of register VY shifted right bit by one bit in register VX
+		case 0x0006:
+			V[0xF] = V[(opcode & 0x00F0) >> 4] & 0x000F;				// Store the least significant bit prior to shift						// Could be a problem zone if emulator failed
+			V[(opcode & 0x0F00) >> 8] = V[(opcode & 0x00F0) >> 4] >> 1;
+			pc += 2;
+			break;
+
+		// 8XY7 - Set register VX to the value of VY minus VX
+		case 0x0007:
+			if (V[(opcode & 0x00F0) >> 4] < V[(opcode & 0x0F00) >> 8])
+				V[0xF] = 1;												// Carry one if we loop under
+			else
+				V[0xF] = 0;												// Else set it to 0
+			V[(opcode & 0x0F00) >> 8] = V[(opcode & 0x00F0) >> 4] - V[(opcode & 0x0F00) >> 8];
+			pc += 2;
+			break;
+
+		// 8XYE - Store the value of register VY shifted left bit by one bit in register VX
+		case 0x000E:
+			V[0xF] = (V[(opcode & 0x00F0) >> 4] & 0xF000) >> 12;		// Store the least significant bit prior to shift						// Could be a problem zone if emulator failed
+			V[(opcode & 0x0F00) >> 8] = V[(opcode & 0x00F0) >> 4] << 1;
 			pc += 2;
 			break;
 
@@ -173,17 +217,50 @@ void Chip8::emulateCycle() {
 		}
 		break;
 
+	// 9XY0 - Skip following instruction if value of register VX is not equal to the value of register VY
+	case 0x9000:
+		if (V[(opcode & 0x0F00) >> 8] == V[(opcode & 0x00F0) >> 4])
+			pc += 2;
+		pc += 2;
+		break;
+
 	// ANNN - Store memory address NNN in register I
 	case 0xA000:
 		I = opcode & 0x0FFF;
 		pc += 2;
 		break;
+
+	// BNNN - Jump to address NNN + V0
+	case 0xB000:
+		pc = (opcode & 0x0FFF) + V[0x0];
+		break;
+
+	// CXNN - Sets VX to a random number, masked by NN.
+	case 0xC000:
+		V[(opcode & 0x0F00) >> 8] = (rand() % (0xFF + 1)) & (opcode & 0x00FF);
+		pc += 2;
+		break;
+
+	// DXYN - Draw a sprite at position (VX, VY) with N bytes of sprite data starting at the address stored in I
+	//		  and set VF to 01 if any pixels are cahnged to unset, and 00 otherwise
+	case 0xD000:
+		printf("HAVEN'T IMPLEMENTED THIS LINE OF CODE YET");
+		pc += 2;
+		break;
+
+	// EXXX opcodes
+	case 0xE000:
+		switch (opcode & 0x000F) {
+			
+			// EX9E
+		}
+		break;
+
 	default:
 		printf("Unknown opcode: 0x%X\n", opcode);
 		exit(3);
 	}
 
-	// Execute Opcode
 
 	// Update timers
 	if (delay_timer > 0)

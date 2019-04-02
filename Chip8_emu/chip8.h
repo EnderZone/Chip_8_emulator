@@ -8,8 +8,8 @@ private:
 	uint16_t stack[16];				// Stack
 	uint16_t sp;					// Stack pointer
 
-	uint16_t memory[4096];			// 4k Memory
-	uint16_t V[16];					// V registers (V0-VF)
+	uint8_t memory[4096];			// 4k Memory
+	uint8_t V[16];					// V registers (V0-VF)
 	
 	uint16_t pc;					// Program counter
 	uint16_t opcode;				// Current op code
