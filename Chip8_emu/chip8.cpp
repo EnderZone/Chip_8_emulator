@@ -189,7 +189,7 @@ void Chip8::emulateCycle() {
 
 		// 8XY6 - Store the value of register VY shifted right bit by one bit in register VX
 		case 0x0006:
-			V[0xF] = V[(opcode & 0x00F0) >> 4] & 0x000F;				// Store the least significant bit prior to shift						// Could be a problem zone if emulator failed
+			V[0xF] = V[(opcode & 0x00F0) >> 4] & 0x0001;				// Store the least significant bit prior to shift						// Could be a problem zone if emulator failed
 			V[(opcode & 0x0F00) >> 8] = V[(opcode & 0x00F0) >> 4] >> 1;
 			pc += 2;
 			break;
@@ -206,7 +206,7 @@ void Chip8::emulateCycle() {
 
 		// 8XYE - Store the value of register VY shifted left bit by one bit in register VX
 		case 0x000E:
-			V[0xF] = (V[(opcode & 0x00F0) >> 4] & 0xF000) >> 12;		// Store the least significant bit prior to shift						// Could be a problem zone if emulator failed
+			V[0xF] = (V[(opcode & 0x00F0) >> 4] & 0xF000) >> 15;		// Store the least significant bit prior to shift						// Could be a problem zone if emulator failed
 			V[(opcode & 0x0F00) >> 8] = V[(opcode & 0x00F0) >> 4] << 1;
 			pc += 2;
 			break;
@@ -250,9 +250,114 @@ void Chip8::emulateCycle() {
 
 	// EXXX opcodes
 	case 0xE000:
-		switch (opcode & 0x000F) {
+		switch (opcode & 0x00FF) {
 			
-			// EX9E
+		// EX9E - Skip the following instruction if the key corresponding to the hex value currently stored
+		//		  in VX is pressed
+		case 0x009E:
+			if (key[V[(opcode & 0x0F00) >> 8]] != 0)
+				pc += 2;
+			pc += 2;
+			break;
+
+		// EXA1 - Skip the following instruction if the key corresponding to the hex value currently stored
+		//		  in VX is not pressed
+		case 0x00A1:
+			if (key[V[(opcode & 0x0F00) >> 8]] == 0)
+				pc += 2;
+			pc += 2;
+			break;
+
+		default:
+			printf("Unknown opcode: 0x%X\n", opcode);
+			exit(3);
+		}
+		break;
+
+	// FXXX opcodes
+	case 0xF000:
+		switch (opcode & 0x00FF) {
+
+		// FX07 - Store the current value of the delay timer in register VX
+		case 0x0007:
+			V[(opcode & 0x0F00) >> 8]) = delay_timer;
+			pc += 2;
+			break;
+
+		// FX0A - Wait for a keypress and store the result in register VX
+		case 0x000A:
+			bool isKeyPressed = false;
+			do
+			{
+				for (uint16_t keyNo = 0; key < 0xF; keyNo++)
+					isKeyPressed = isKeyPressed || key[keyNo];
+
+			} while (!isKeyPressed);
+
+
+			pc += 2;
+			break;
+
+		// FX15 - Set the delay timer to the value of register VX
+		case 0x0015:
+			delay_timer = V[(opcode & 0x0F00) >> 8]);
+			pc += 2;
+			break;
+
+		// FX18 - Set the sound timer to the value of register VX
+		case 0x0018:
+			sound_timer = V[(opcode & 0x0F00) >> 8]);
+			pc += 2;
+			break;
+
+		// FX1E - Add the value stored in register VX to register I
+		case 0x001E:
+			I += V[(opcode & 0x0F00) >> 8]);
+			pc += 2;
+			break;
+
+		// FX29 - Set I to the memory address of the sprite data corresponding to the hexadecimal digit 
+		//		  stored in register VX
+		case 0x0029:
+			I = V[(opcode & 0x0F00) >> 8]) * 0x5;
+			pc += 2;
+			break;
+
+		// FX33 - Store the binary-coded decimal equivalent of the value stored in register VX at
+		//		  addresses I, I+1, I+2 (if number is 123 then mem[I] = 0x0001 , mem[I+1] = 0x0010, and meme[I+2] = 0x0011)
+		case 0x0033:
+			// First digit XNN / 100 = X (int division)
+			// Second digit NXN / 10 = NX % 10 = X 
+			// Third digit NNX % 10 = X
+			memory[I] = V[(opcode & 0x0F00) >> 8] / 100;
+			memory[I] = (V[(opcode & 0x0F00) >> 8] / 10) % 10;
+			memory[I] = V[(opcode & 0x0F00) >> 8] % 10;
+			pc += 2;
+			break;
+
+		// FX55 - Store the values of registers V0 to VX (inclusive) in memory starting at address I
+		//		  I is set to I + X + 1 after the operation
+        case 0x0055:
+			int range = (opcode & 0x0F00) >> 8;
+			for (uint8_t registerNo = 0; registerNo <= range; i++) 
+				memory[I + registerNo] = V[registerNo];
+			I = I + range + 1;
+			pc += 2;
+			break;
+
+		// FX65 - Fill registers V0 to VX with values stored in memory starting at address I
+		//		  I is set to I + X + 1 after the operation
+		case 0x0065:
+			int range = (opcode & 0x0F00) >> 8;
+			for (uint8_t registerNo = 0; registerNo <= range; i++)
+				V[registerNo] = memory[I + registerNo];
+			I = I + range + 1;
+			pc += 2;
+			break;
+
+		default:
+			printf("Unknown opcode: 0x%X\n", opcode);
+			exit(3);
 		}
 		break;
 
