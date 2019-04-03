@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <random>
+#include <ctime>
 
 
 #include "chip8.h"
@@ -61,6 +62,8 @@ void Chip8::init() {
 }
 
 void Chip8::emulateCycle() {
+	std::clock_t start = std::clock();
+
 	// Fetch Opcode
 	opcode = memory[pc] << 8 | memory[pc + 1];
 
@@ -244,7 +247,29 @@ void Chip8::emulateCycle() {
 	// DXYN - Draw a sprite at position (VX, VY) with N bytes of sprite data starting at the address stored in I
 	//		  and set VF to 01 if any pixels are cahnged to unset, and 00 otherwise
 	case 0xD000:
-		printf("HAVEN'T IMPLEMENTED THIS LINE OF CODE YET");
+		unsigned short x = V[(opcode & 0x0F00) >> 8];
+		unsigned short y = V[(opcode & 0x00F0) >> 4];
+		unsigned short height = opcode & 0x000F; // N number of sprite data
+		unsigned short pixel;
+
+		V[0xF] = 0;
+		for (int yline = 0; yline < height; yline++) // we are drawing for n sprites
+		{
+			pixel = memory[I + yline]; //The pixel we are looking at need the memory address stored in there
+			for (int xline = 0; xline < 8; xline++)
+			{
+				if ((pixel & (0x80 >> xline)) != 0) // makes
+				{
+					if (gfx[(x + xline + ((y + yline) * 64))] == 1)
+					{
+						V[0xF] = 1;
+					}
+					gfx[x + xline + ((y + yline) * 64)] ^= 1;
+				}
+			}
+		}
+
+		drawFlag = true;
 		pc += 2;
 		break;
 
@@ -375,11 +400,58 @@ void Chip8::emulateCycle() {
 			printf("BEEP!\n");
 		--sound_timer;
 	}
+
+	// Forcing 60fps
+	while (std::clock() > (start + (1000/60))) {}
 }
 
 void Chip8::setKeys() {
 }
 
 bool Chip8::loadGame(const char* game_file) {
-	//just load the contents of the ROM into memory, will write later when I understand more and do not need to look at a guide to understand
+	printf("Loading ROM: %s\n", file_path);
+
+	// Open ROM file
+	FILE* rom = fopen(file_path, "rb");
+	if (rom == NULL) {
+		std::cerr << "Failed to open ROM" << std::endl;
+		return false;
+	}
+
+	// Get file size
+	fseek(rom, 0, SEEK_END);
+	long rom_size = ftell(rom);
+	rewind(rom);
+
+	// Allocate memory to store rom
+	char* rom_buffer = (char*)malloc(sizeof(char) * rom_size);
+	if (rom_buffer == NULL) {
+		std::cerr << "Failed to allocate memory for ROM" << std::endl;
+		return false;
+	}
+
+	// Copy ROM into buffer
+	size_t result = fread(rom_buffer, sizeof(char), (size_t)rom_size, rom);
+	if (result != rom_size) {
+		std::cerr << "Failed to read ROM" << std::endl;
+		return false;
+	}
+
+	// Copy buffer to memory
+	if ((4096 - 512) > rom_size) {
+		for (int i = 0; i < rom_size; ++i) {
+			memory[i + 512] = (uint8_t)rom_buffer[i];   // Load into memory starting
+														// at 0x200 (=512)
+		}
+	}
+	else {
+		std::cerr << "ROM too large to fit in memory" << std::endl;
+		return false;
+	}
+
+	// Clean up
+	fclose(rom);
+	free(rom_buffer);
+
+	return true;
 }
