@@ -4,7 +4,7 @@ Chip8 myChip8;
 
 int main(int argc, char** argv) {
 	myChip8.init();
-	myChip8.loadGame(NULL);
+	myChip8.loadGame("..\\roms\\PONG");
 
 	for (;;) {
 		

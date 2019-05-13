@@ -27,7 +27,6 @@ unsigned char chip8_fontset[80] =
   0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
 
-
 Chip8::Chip8() {
 
 }
@@ -312,15 +311,11 @@ void Chip8::emulateCycle() {
 		// FX0A - Wait for a keypress and store the result in register VX
 		case 0x000A:
 			bool isKeyPressed = false;
-			do
-			{
-				for (uint16_t keyNo = 0; key < 0xF; keyNo++)
-					isKeyPressed = isKeyPressed || key[keyNo];
+			for (uint16_t keyNo = 0; key < 0xF; keyNo++)
+				isKeyPressed = isKeyPressed || key[keyNo];
 
-			} while (!isKeyPressed);
-
-
-			pc += 2;
+			if(isKeyPressed)
+				pc += 2;
 			break;
 
 		// FX15 - Set the delay timer to the value of register VX
